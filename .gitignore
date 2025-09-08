@@ -55,3 +55,56 @@ tests/fuzzer/enc_dec_fuzzer
 tests/fuzzer/huffman_fuzzer
 tests/fuzzer/mux_demux_api_fuzzer
 tests/fuzzer/simple_api_fuzzer
+
+# WASM build artifacts
+dist/
+build-wasm-native/
+build-wasm-threaded/
+*.wasm
+*.wasm.map
+*.js.mem
+*.js.symbols
+*.js.temp
+*.wast
+*.wat
+
+# Emscripten cache and tools
+emsdk/
+emsdk_env.sh
+.emscripten_cache/
+
+# Generated JavaScript from TypeScript (only TS sources should be tracked)
+**/*.js
+**/*.js.map
+# Allow legitimate config files
+!eslint.config.js
+!vitest.config.js
+!playwright.config.js
+
+# Node.js and NPM
+node_modules/
+package-lock.json
+yarn.lock
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing and CI artifacts
+test-results/
+benchmark-results/
+coverage/
+.nyc_output/
+build-logs/
+
+# WASM-native assets and caches
+assets/
+image-cache/
+cdn-cache/
+temp-files/
+
+# Development and debugging
+*.dSYM/
+*.map
+core.*
+*.core
+gdb.txt

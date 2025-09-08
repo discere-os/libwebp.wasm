@@ -1,0 +1,357 @@
+# CMakeLists.wasm.txt - WASM-specific CMake configuration for libwebp.wasm
+#
+# This file provides WASM-optimized build configuration for libwebp
+# with WASM SIMD optimizations and proper Emscripten integration.
+#
+# Copyright 2025 Superstruct Ltd, New Zealand
+# Licensed under BSD-3-Clause (same as libwebp)
+
+cmake_minimum_required(VERSION 3.16)
+
+# WASM-specific project configuration
+project(libwebp-wasm
+        VERSION 1.4.0
+        LANGUAGES C ASM)
+
+# Ensure we're building for Emscripten
+if(NOT EMSCRIPTEN)
+  message(FATAL_ERROR "This CMake file is specifically for Emscripten/WASM builds. Use regular CMakeLists.txt for other platforms.")
+endif()
+
+# Set WASM target architecture
+set(WEBP_TARGET_ARCHITECTURE "wasm32")
+message(STATUS "Building libwebp.wasm for WASM target architecture: ${WEBP_TARGET_ARCHITECTURE}")
+
+# PRIORITY 1: Core Build Configuration
+# ===================================
+
+# Library build options - WASM optimized
+option(WEBP_BUILD_SHARED "Build libwebp as a shared WASM library" OFF)  # Static preferred for WASM
+option(WEBP_BUILD_STATIC "Build libwebp as a static WASM library" ON)
+
+# Disable tools and extras for production WASM build
+option(WEBP_BUILD_CWEBP "Build the cwebp command line tool" OFF)
+option(WEBP_BUILD_DWEBP "Build the dwebp command line tool" OFF)
+option(WEBP_BUILD_GIF2WEBP "Build the gif2webp conversion tool" OFF)
+option(WEBP_BUILD_IMG2WEBP "Build the img2webp animation tool" OFF)
+option(WEBP_BUILD_VWEBP "Build the vwebp viewer tool" OFF)
+option(WEBP_BUILD_WEBPINFO "Build the webpinfo command line tool" OFF)
+option(WEBP_BUILD_WEBPMUX "Build the webpmux command line tool" OFF)
+option(WEBP_BUILD_EXTRAS "Build extras" OFF)
+option(WEBP_BUILD_WEBP_JS "Emscripten build of webp.js" OFF)
+
+# Enable core WebP functionality
+option(WEBP_BUILD_LIBWEBPMUX "Build the libwebpmux library" ON)
+option(WEBP_BUILD_ANIM_UTILS "Build animation utilities" ON)
+option(WEBP_USE_THREAD "Enable threading support" ON)
+option(WEBP_NEAR_LOSSLESS "Enable near-lossless encoding" ON)
+
+# PRIORITY 1: Enable WASM SIMD optimizations
+# ===========================================
+set(WEBP_ENABLE_SIMD ON CACHE BOOL "Enable WASM SIMD optimizations" FORCE)
+message(STATUS "WASM SIMD optimizations enabled")
+
+# PRIORITY 1: Emscripten-Specific Compiler Flags
+# ==============================================
+
+# Core WASM flags with maximum modern browser features
+set(WASM_CORE_FLAGS
+    -s WASM=1
+    -s MODULARIZE=1
+    -s EXPORT_ES6=1
+    -O3
+    -flto                         # Link-time optimization for maximum performance
+    --closure=1                   # Closure compiler for size optimization
+    -s ALLOW_MEMORY_GROWTH=1
+    -s "EXPORTED_RUNTIME_METHODS=['ccall','cwrap','FS','setValue','getValue']"
+)
+
+# Maximum WASM SIMD and modern features
+if(WEBP_ENABLE_SIMD)
+  list(APPEND WASM_CORE_FLAGS
+    -msimd128                     # WASM SIMD instructions
+    -s SIMD=1                     # Enable SIMD support
+    -msse2                        # Additional SIMD optimizations via WASM SIMD
+    -msse3
+    -mssse3
+  )
+endif()
+
+# Aggressive memory configuration for native-level performance
+set(WASM_MEMORY_FLAGS
+    -s INITIAL_MEMORY=67108864    # 64MB initial (larger for image processing)
+    -s MAXIMUM_MEMORY=2147483648  # 2GB maximum (no artificial browser limits)
+    -s STACK_SIZE=2097152         # 2MB stack for complex operations
+    -s TOTAL_STACK=2097152        # Match stack allocation
+)
+
+# Advanced browser features and filesystem support
+set(WASM_ADVANCED_FLAGS
+    -s FORCE_FILESYSTEM=1
+    -s "EXTRA_EXPORTED_RUNTIME_METHODS=['FS','IDBFS','writeFile','readFile']"
+    # Modern browser APIs (require WebGPU+SIMD browsers only)
+    -s USE_PTHREADS=0             # Disable for SIDE_MODULE compatibility, enable in MAIN_MODULE
+    -s SHARED_MEMORY=0            # Disable for SIDE_MODULE, enable in MAIN_MODULE
+    -s ASYNCIFY=1                 # Enable async/await in C code
+    -s ASYNCIFY_STACK_SIZE=8192   # Stack for async operations
+    # Advanced Emscripten features
+    -s FETCH=1                    # Modern fetch API for network operations
+    -s WASM_BIGINT=1             # BigInt support for large numbers
+    -s DYNAMIC_EXECUTION=0        # Security: disable eval-like features
+    -s TEXTDECODER=2             # Fast text decoding
+    # Eliminate unnecessary runtime methods for smaller size
+    -s MINIMAL_RUNTIME=0          # Keep full runtime for flexibility
+)
+
+# Additional flags for MAIN_MODULE builds (threading-capable)
+set(WASM_MAIN_MODULE_FLAGS
+    -s USE_PTHREADS=1             # Enable threading for MAIN_MODULE
+    -s SHARED_MEMORY=1            # Enable SharedArrayBuffer
+    -s PTHREAD_POOL_SIZE=4        # Thread pool for parallel operations
+    -s PROXY_TO_PTHREAD=1         # Keep main thread responsive
+)
+
+# Build type detection and flag combination
+option(BUILD_SIDE_MODULE "Build as SIDE_MODULE for dynamic loading" OFF)
+option(BUILD_MAIN_MODULE "Build as MAIN_MODULE with threading" ON)
+
+# Combine flags based on build type
+if(BUILD_SIDE_MODULE)
+    # SIDE_MODULE: No threading, optimized for dlopen()
+    set(WASM_FLAGS ${WASM_CORE_FLAGS} ${WASM_MEMORY_FLAGS} ${WASM_ADVANCED_FLAGS})
+    list(APPEND WASM_FLAGS -s SIDE_MODULE=1)
+    list(APPEND WASM_FLAGS -s ERROR_ON_UNDEFINED_SYMBOLS=0)
+    message(STATUS "Building libwebp.wasm as SIDE_MODULE")
+elseif(BUILD_MAIN_MODULE)
+    # MAIN_MODULE: Full features including threading
+    set(WASM_FLAGS ${WASM_CORE_FLAGS} ${WASM_MEMORY_FLAGS} ${WASM_ADVANCED_FLAGS} ${WASM_MAIN_MODULE_FLAGS})
+    list(APPEND WASM_FLAGS -s MAIN_MODULE=1)
+    message(STATUS "Building libwebp.wasm as MAIN_MODULE with threading")
+else()
+    # Default standalone build
+    set(WASM_FLAGS ${WASM_CORE_FLAGS} ${WASM_MEMORY_FLAGS} ${WASM_ADVANCED_FLAGS})
+    message(STATUS "Building libwebp.wasm as standalone module")
+endif()
+
+# Apply WASM flags to C and CXX compilers
+string(REPLACE ";" " " WASM_FLAGS_STR "${WASM_FLAGS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${WASM_FLAGS_STR}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WASM_FLAGS_STR}")
+
+# Linker flags for WASM
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${WASM_FLAGS_STR}")
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${WASM_FLAGS_STR}")
+
+# PRIORITY 2: WASM SIMD Image Processing Implementation
+# =====================================================
+
+# WASM-native source files
+set(libwebp_wasm_sources "")
+if(WEBP_ENABLE_SIMD)
+  set(libwebp_wasm_sources
+      src/wasm_native.c
+      src/wasm_simd.c
+  )
+endif()
+
+# Include the main libwebp configuration
+include(GNUInstallDirs)
+
+# Source files from main CMakeLists.txt
+set(WEBP_SRCS
+  src/dec/alpha_dec.c
+  src/dec/buffer_dec.c
+  src/dec/frame_dec.c
+  src/dec/idec_dec.c
+  src/dec/io_dec.c
+  src/dec/quant_dec.c
+  src/dec/tree_dec.c
+  src/dec/vp8_dec.c
+  src/dec/vp8l_dec.c
+  src/dec/webp_dec.c
+  src/demux/anim_decode.c
+  src/demux/demux.c
+  src/dsp/alpha_processing.c
+  src/dsp/alpha_processing_mips_dsp_r2.c
+  src/dsp/alpha_processing_neon.c
+  src/dsp/alpha_processing_sse2.c
+  src/dsp/alpha_processing_sse41.c
+  src/dsp/cost.c
+  src/dsp/cost_mips32.c
+  src/dsp/cost_mips_dsp_r2.c
+  src/dsp/cost_neon.c
+  src/dsp/cost_sse2.c
+  src/dsp/cpu.c
+  src/dsp/dec.c
+  src/dsp/dec_clip_tables.c
+  src/dsp/dec_mips32.c
+  src/dsp/dec_mips_dsp_r2.c
+  src/dsp/dec_msa.c
+  src/dsp/dec_neon.c
+  src/dsp/dec_sse2.c
+  src/dsp/dec_sse41.c
+  src/dsp/enc.c
+  src/dsp/enc_mips32.c
+  src/dsp/enc_mips_dsp_r2.c
+  src/dsp/enc_msa.c
+  src/dsp/enc_neon.c
+  src/dsp/enc_sse2.c
+  src/dsp/enc_sse41.c
+  src/dsp/filters.c
+  src/dsp/filters_mips_dsp_r2.c
+  src/dsp/filters_msa.c
+  src/dsp/filters_neon.c
+  src/dsp/filters_sse2.c
+  src/dsp/lossless.c
+  src/dsp/lossless_enc.c
+  src/dsp/lossless_enc_mips32.c
+  src/dsp/lossless_enc_mips_dsp_r2.c
+  src/dsp/lossless_enc_msa.c
+  src/dsp/lossless_enc_neon.c
+  src/dsp/lossless_enc_sse2.c
+  src/dsp/lossless_enc_sse41.c
+  src/dsp/lossless_mips_dsp_r2.c
+  src/dsp/lossless_msa.c
+  src/dsp/lossless_neon.c
+  src/dsp/lossless_sse2.c
+  src/dsp/lossless_sse41.c
+  src/dsp/rescaler.c
+  src/dsp/rescaler_mips32.c
+  src/dsp/rescaler_mips_dsp_r2.c
+  src/dsp/rescaler_msa.c
+  src/dsp/rescaler_neon.c
+  src/dsp/rescaler_sse2.c
+  src/dsp/ssim.c
+  src/dsp/ssim_sse2.c
+  src/dsp/upsampling.c
+  src/dsp/upsampling_mips_dsp_r2.c
+  src/dsp/upsampling_msa.c
+  src/dsp/upsampling_neon.c
+  src/dsp/upsampling_sse2.c
+  src/dsp/upsampling_sse41.c
+  src/dsp/yuv.c
+  src/dsp/yuv_mips32.c
+  src/dsp/yuv_mips_dsp_r2.c
+  src/dsp/yuv_neon.c
+  src/dsp/yuv_sse2.c
+  src/dsp/yuv_sse41.c
+  src/enc/alpha_enc.c
+  src/enc/analysis_enc.c
+  src/enc/backward_references_cost_enc.c
+  src/enc/backward_references_enc.c
+  src/enc/config_enc.c
+  src/enc/cost_enc.c
+  src/enc/filter_enc.c
+  src/enc/frame_enc.c
+  src/enc/histogram_enc.c
+  src/enc/iterator_enc.c
+  src/enc/near_lossless_enc.c
+  src/enc/picture_enc.c
+  src/enc/picture_csp_enc.c
+  src/enc/picture_psnr_enc.c
+  src/enc/picture_rescale_enc.c
+  src/enc/picture_tools_enc.c
+  src/enc/predictor_enc.c
+  src/enc/quant_enc.c
+  src/enc/syntax_enc.c
+  src/enc/token_enc.c
+  src/enc/tree_enc.c
+  src/enc/vp8l_enc.c
+  src/enc/webp_enc.c
+  src/mux/anim_encode.c
+  src/mux/muxedit.c
+  src/mux/muxinternal.c
+  src/mux/muxread.c
+  src/utils/bit_reader_utils.c
+  src/utils/bit_writer_utils.c
+  src/utils/color_cache_utils.c
+  src/utils/filters_utils.c
+  src/utils/huffman_encode_utils.c
+  src/utils/huffman_utils.c
+  src/utils/quant_levels_dec_utils.c
+  src/utils/quant_levels_utils.c
+  src/utils/random_utils.c
+  src/utils/rescaler_utils.c
+  src/utils/thread_utils.c
+  src/utils/utils.c
+  ${libwebp_wasm_sources}
+)
+
+# PRIORITY 1: Library Creation
+# ============================
+
+if(WEBP_BUILD_STATIC)
+  # Create static library
+  add_library(webp STATIC ${WEBP_SRCS})
+
+  # Include directories
+  target_include_directories(webp
+                             PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
+                             PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>"
+                             INTERFACE "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+
+  # Set target properties
+  set_target_properties(webp PROPERTIES
+                        OUTPUT_NAME "webp"
+                        VERSION "1.4.0"
+                        SOVERSION "1"
+                        POSITION_INDEPENDENT_CODE TRUE)
+
+  # WASM-specific compile definitions
+  target_compile_definitions(webp PUBLIC
+    WEBP_HAVE_WASM_SIMD=1
+    WEBP_WASM_NATIVE=1
+  )
+
+  # Add SIMD support definitions
+  if(WEBP_ENABLE_SIMD)
+    target_compile_definitions(webp PUBLIC
+      WEBP_HAVE_SIMD=1
+      WEBP_USE_SIMD=1
+    )
+  endif()
+
+  # Set as main WebP target
+  set(WEBP_LIBRARY_TARGET webp)
+
+  message(STATUS "Created static libwebp.wasm target: webp")
+endif()
+
+# PRIORITY 2: Installation Configuration
+# ======================================
+
+if(WEBP_BUILD_STATIC AND NOT SKIP_INSTALL_LIBRARIES AND NOT SKIP_INSTALL_ALL)
+  install(TARGETS ${WEBP_LIBRARY_TARGET}
+          EXPORT libwebp-wasm
+          ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+endif()
+
+# Install headers
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/webp"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+        FILES_MATCHING PATTERN "*.h")
+
+# PRIORITY 1: Export Configuration
+# ================================
+
+if(WEBP_BUILD_STATIC)
+  install(EXPORT libwebp-wasm
+          FILE libwebp-wasm-config.cmake
+          DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libwebp-wasm"
+          NAMESPACE libwebp-wasm::)
+
+  # Create version file
+  include(CMakePackageConfigHelpers)
+  write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/libwebp-wasm-config-version.cmake"
+    VERSION "1.4.0"
+    COMPATIBILITY SameMajorVersion
+  )
+
+  install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/libwebp-wasm-config-version.cmake"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libwebp-wasm"
+  )
+endif()
+
+message(STATUS "libwebp.wasm configuration complete")

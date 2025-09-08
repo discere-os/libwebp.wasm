@@ -1,0 +1,123 @@
+{
+  "name": "@discere-os/libwebp.wasm",
+  "version": "1.4.0",
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "description": "High-performance WebP image processing with SIMD optimizations and TypeScript-first WASM-native experience",
+  "main": "dist/main/libwebp.js",
+  "module": "dist/browser/index.js",
+  "types": "dist/lib/types.d.ts",
+  "exports": {
+    ".": {
+      "browser": "./dist/browser/index.js",
+      "node": "./dist/node/index.js",
+      "types": "./dist/lib/types.d.ts"
+    },
+    "./side": {
+      "import": "./dist/side/libwebp-side.wasm",
+      "types": "./dist/lib/types.d.ts"
+    },
+    "./main": {
+      "import": "./dist/main/libwebp.js",
+      "types": "./dist/lib/types.d.ts"
+    },
+    "./wasm": {
+      "import": "./dist/wasm/libwebp.js",
+      "types": "./dist/wasm/types.d.ts"
+    },
+    "./dependencies": {
+      "import": "./dist/dependencies.json"
+    }
+  },
+  "scripts": {
+    "build": "tsc && npm run build:wasm",
+    "build:wasm": "./build-wasm-dual.sh",
+    "build:docs": "typedoc --out dist/docs src/lib/index.ts",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "test:ui": "vitest --ui",
+    "test:browser": "playwright test",
+    "test:legacy": "node dist/demo.js",
+    "type-check": "tsc --noEmit",
+    "demo": "node dist/demo.js",
+    "benchmark": "node dist/benchmark.js",
+    "clean": "rm -rf dist build install node_modules/.vite",
+    "prepublishOnly": "npm run build && npm run test"
+  },
+  "keywords": [
+    "webp",
+    "image",
+    "compression",
+    "wasm",
+    "webassembly",
+    "simd",
+    "encoding",
+    "decoding",
+    "graphics",
+    "typescript",
+    "performance",
+    "lossless",
+    "animation"
+  ],
+  "author": "Superstruct Ltd, New Zealand",
+  "license": "BSD-3-Clause",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^3.0.0",
+    "@vitest/ui": "^3.0.0",
+    "@playwright/test": "^1.40.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "wasm/",
+    "build-wasm-dual.sh",
+    "CMakeLists.wasm.txt",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/discere-os/libwebp.wasm.git"
+  },
+  "homepage": "https://github.com/discere-os/libwebp.wasm",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "cdn": {
+    "primary": "https://cdn.discere.cloud/npm/@discere-os/libwebp.wasm/",
+    "fallbacks": [
+      "https://cdn.jsdelivr.net/npm/@discere-os/libwebp.wasm/",
+      "https://unpkg.com/@discere-os/libwebp.wasm/"
+    ]
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "browsers": "Chrome >= 113, Edge >= 113"
+  },
+  "browserslist": [
+    "Chrome >= 113",
+    "Edge >= 113"
+  ],
+  "webAssemblyRequirements": {
+    "simd": "required",
+    "threads": "main_module_only",
+    "webgpu": "recommended"
+  },
+  "dependencyArchitecture": {
+    "class": "Class 1: Standalone Library",
+    "rationale": "WebP is a complete image format implementation without external dependencies",
+    "details": "./dist/dependencies.json",
+    "documentation": "https://github.com/discere-os/discere-nucleus/blob/main/docs/LIBWEBP_ARCHITECTURE.md"
+  },
+  "performance": {
+    "benchmarks": "Available via npm run benchmark",
+    "simdSupport": "WASM SIMD optimizations for encoding/decoding",
+    "threadingSupport": "Multi-threaded processing in MAIN_MODULE builds",
+    "memoryOptimization": "Streaming decode/encode with minimal memory footprint",
+    "browserOptimization": "WebGPU+SIMD browsers only - no legacy fallbacks"
+  }
+}
