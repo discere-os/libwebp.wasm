@@ -1,54 +1,28 @@
-# WebP Codec
+# @discere-os/libwebp.wasm
 
-```
-      __   __  ____  ____  ____
-     /  \\/  \/  _ \/  _ )/  _ \
-     \       /   __/  _  \   __/
-      \__\__/\____/\_____/__/ ____  ___
-            / _/ /    \    \ /  _ \/ _/
-           /  \_/   / /   \ \   __/  \__
-           \____/____/\_____/_____/____/v1.6.0
-```
+WebAssembly port of libwebp - Library for encoding and decoding WebP images with advanced compression.
 
-WebP codec is a library to encode and decode images in WebP format. This package
-contains the library that can be used in other programs to add WebP support, as
-well as the command line tools 'cwebp' and 'dwebp' to compress and decompress
-images respectively.
+[![CI/CD](https://github.com/discere-os/discere-nucleus/actions/workflows/libwebp-wasm-ci.yml/badge.svg)](https://github.com/discere-os/discere-nucleus/actions)
+[![JSR](https://jsr.io/badges/@discere-os/libwebp.wasm)](https://jsr.io/@discere-os/libwebp.wasm)
+[![npm version](https://badge.fury.io/js/@discere-os%2Flibwebp.wasm.svg)](https://badge.fury.io/js/@discere-os%2Flibwebp.wasm)
+[![License](https://img.shields.io/badge/License-BSD-blue.svg)](COPYING)
+[![Status](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/discere-os/discere-nucleus)
 
-See https://developers.google.com/speed/webp for details on the image format.
+WebP codec is a library to encode and decode images in WebP format. This package contains the library that can be used in other programs to add WebP support.
 
-The latest source tree is available at
-https://chromium.googlesource.com/webm/libwebp
+## 💖 Support This Work
 
-It is released under the same license as the WebM project. See
-https://www.webmproject.org/license/software/ or the "COPYING" file for details.
-An additional intellectual property rights grant can be found in the file
-PATENTS.
+This WebAssembly port is part of a larger effort to bring professional desktop applications to browsers with native performance.
 
-## Building
+**👨‍💻 About the Maintainer**: [Isaac Johnston (@superstructor)](https://github.com/superstructor) - Building foundational browser-native computing infrastructure through systematic C/C++ to WebAssembly porting.
 
-See the [building documentation](doc/building.md).
+**📊 Impact**: 70+ open source WASM libraries enabling professional applications like Blender, GIMP, and scientific computing tools to run natively in browsers.
 
-## Encoding and Decoding Tools
+**🚀 Your Support Enables**:
+- Continued maintenance and updates
+- Performance optimizations
+- New library ports and integrations
+- Documentation and tutorials
+- Cross-browser compatibility testing
 
-The examples/ directory contains tools to encode and decode images and
-animations, view information about WebP images, and more. See the
-[tools documentation](doc/tools.md).
-
-## APIs
-
-See the [APIs documentation](doc/api.md), and API usage examples in the
-`examples/` directory.
-
-## Bugs
-
-Please report all bugs to the [issue tracker](https://issues.webmproject.org).
-For security reports, select 'Security report' from the Template dropdown.
-
-Patches welcome! See [how to contribute](CONTRIBUTING.md).
-
-## Discuss
-
-Email: webp-discuss@webmproject.org
-
-Web: https://groups.google.com/a/webmproject.org/group/webp-discuss
+**[💖 Sponsor this work](https://github.com/sponsors/superstructor)** to help build the future of browser-native computing.
