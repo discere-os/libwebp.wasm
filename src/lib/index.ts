@@ -10,7 +10,7 @@ import {
   WebPPreset,
   WebPImageHint,
   WebPErrorCode
-} from './types.js'
+} from './types.ts'
 import type {
   LibWebPModule,
   WebPImageInfo,
@@ -22,7 +22,7 @@ import type {
   WebPCapabilities,
   WebPLoadingOptions,
   WebPPerformanceMetrics
-} from './types.js'
+} from './types.ts'
 
 /**
  * WebP processor with WASM SIMD optimizations
@@ -46,10 +46,10 @@ export class LibWebP {
   }
 
   private loadingOptions: WebPLoadingOptions = {
-    cdnUrl: 'https://cdn.discere.cloud/npm/@discere-os/libwebp.wasm/',
+    cdnUrl: 'https://wasm.discere.cloud/libwebp/latest/main/',
     fallbackUrls: [
-      'https://cdn.jsdelivr.net/npm/@discere-os/libwebp.wasm/',
-      'https://unpkg.com/@discere-os/libwebp.wasm/'
+      'https://cdn.jsdelivr.net/npm/@discere-os/libwebp.wasm/dist/',
+      'https://unpkg.com/@discere-os/libwebp.wasm/dist/'
     ],
     timeout: 30000,
     retryCount: 3,
@@ -401,18 +401,87 @@ export class LibWebP {
 
   // Private implementation methods
   private async loadModule(): Promise<LibWebPModule> {
-    // Attempt static module loading (browsers with native WASM support)
-    if (!this.module) {
-      throw new Error('Failed to load libwebp.wasm module')
+    try {
+      const moduleFactory = await this.loadModuleFactory()
+      const wasmBinary = await this.loadWasmBinary()
+
+      // Pass wasmBinary only if successfully loaded
+      const module = await moduleFactory(wasmBinary ? { wasmBinary } : {})
+      return module
+    } catch (error) {
+      throw new Error(`Failed to load libwebp.wasm module: ${error}`)
+    }
+  }
+
+  private async loadModuleFactory(): Promise<Function> {
+    // Deno-first development environment
+    if (typeof globalThis.Deno !== 'undefined') {
+      try {
+        const moduleFactory = (await import('../../install/wasm/libwebp-main.js')).default
+        return moduleFactory
+      } catch (error) {
+        console.warn('Local development module not found, trying CDN:', error)
+      }
     }
 
-    return this.module
+    // Web/CDN runtime - try CDN locations with proper ES6 imports
+    const cdnUrls = [
+      this.loadingOptions.cdnUrl,
+      ...this.loadingOptions.fallbackUrls
+    ]
+
+    for (const url of cdnUrls) {
+      try {
+        const moduleFactory = (await import(`${url}libwebp-main.js`)).default
+        return moduleFactory
+      } catch (error) {
+        console.warn(`Failed to load from ${url}:`, error)
+        continue
+      }
+    }
+
+    throw new Error('Failed to load module factory from any source')
+  }
+
+  private async loadWasmBinary(): Promise<ArrayBuffer | undefined> {
+    // Deno-first development environment
+    if (typeof globalThis.Deno !== 'undefined') {
+      try {
+        const wasmPath = new URL('../../install/wasm/libwebp-main.wasm', import.meta.url).pathname
+        const wasmBuffer = await Deno.readFile(wasmPath)
+        return wasmBuffer.buffer
+      } catch (error) {
+        console.warn('Failed to load local WASM binary:', error)
+        // Continue to CDN fallback
+      }
+    }
+
+    // Web/CDN runtime - try CDN locations
+    const cdnUrls = [
+      this.loadingOptions.cdnUrl,
+      ...this.loadingOptions.fallbackUrls
+    ]
+
+    for (const url of cdnUrls) {
+      try {
+        const response = await fetch(`${url}libwebp-main.wasm`)
+        if (response.ok) {
+          return await response.arrayBuffer()
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch WASM from ${url}:`, error)
+        continue
+      }
+    }
+
+    // Fallback to undefined for embedded WASM
+    return undefined
   }
 }
 
 // Export the main class and types for easy consumption
 export default LibWebP
-export * from './types.js'
+export * from './types.ts'
 
 // Convenience function for quick WebP operations
 export async function createLibWebP(options?: Partial<WebPLoadingOptions>): Promise<LibWebP> {
